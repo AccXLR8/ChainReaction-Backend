@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import uuid
+from typing import Sequence
+
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import models as db
+from app.games.models import GameStatus
+
+
+class UserRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_or_create(self, user_id: uuid.UUID, username: str) -> db.UserModel:
+        result = await self.session.execute(select(db.UserModel).where(db.UserModel.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            return user
+        user = db.UserModel(id=user_id, username=username)
+        self.session.add(user)
+        await self.session.flush()
+        return user
+
+
+class GameRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create(self, game: db.GameModel) -> db.GameModel:
+        self.session.add(game)
+        await self.session.flush()
+        return game
+
+    async def get(self, game_id: uuid.UUID) -> db.GameModel | None:
+        result = await self.session.execute(select(db.GameModel).where(db.GameModel.id == game_id))
+        return result.scalar_one_or_none()
+
+    async def list_games_for_user(self, user_id: uuid.UUID) -> Sequence[db.GameModel]:
+        stmt = select(db.GameModel).where((db.GameModel.player_1_id == user_id) | (db.GameModel.player_2_id == user_id))
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def update_state(self, game_id: uuid.UUID, **kwargs) -> None:
+        await self.session.execute(update(db.GameModel).where(db.GameModel.id == game_id).values(**kwargs))
+
+
+class ParticipantRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create(self, participant: db.GameParticipantModel) -> db.GameParticipantModel:
+        self.session.add(participant)
+        await self.session.flush()
+        return participant
+
+    async def get(self, game_id: uuid.UUID, user_id: uuid.UUID) -> db.GameParticipantModel | None:
+        result = await self.session.execute(
+            select(db.GameParticipantModel).where(
+                db.GameParticipantModel.game_id == game_id,
+                db.GameParticipantModel.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_for_game(self, game_id: uuid.UUID) -> Sequence[db.GameParticipantModel]:
+        result = await self.session.execute(
+            select(db.GameParticipantModel).where(db.GameParticipantModel.game_id == game_id).order_by(db.GameParticipantModel.player_slot)
+        )
+        return result.scalars().all()
+
+
+class MoveRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def create(self, move: db.MoveModel) -> db.MoveModel:
+        self.session.add(move)
+        await self.session.flush()
+        return move
+
+    async def last_sequence(self, game_id: uuid.UUID) -> int:
+        result = await self.session.execute(
+            select(db.MoveModel.sequence).where(db.MoveModel.game_id == game_id).order_by(db.MoveModel.sequence.desc()).limit(1)
+        )
+        row = result.scalar_one_or_none()
+        return row or 0
+
+    async def list_for_game(self, game_id: uuid.UUID) -> Sequence[db.MoveModel]:
+        result = await self.session.execute(
+            select(db.MoveModel).where(db.MoveModel.game_id == game_id).order_by(db.MoveModel.sequence)
+        )
+        return result.scalars().all()
+
+    async def by_client_move_id(self, game_id: uuid.UUID, client_move_id: str) -> db.MoveModel | None:
+        result = await self.session.execute(
+            select(db.MoveModel).where(
+                db.MoveModel.game_id == game_id,
+                db.MoveModel.client_move_id == client_move_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+
+class GameEventRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def append(self, event: db.GameEventModel) -> db.GameEventModel:
+        self.session.add(event)
+        await self.session.flush()
+        return event
+
+    async def list_events(self, game_id: uuid.UUID) -> Sequence[db.GameEventModel]:
+        result = await self.session.execute(select(db.GameEventModel).where(db.GameEventModel.game_id == game_id).order_by(db.GameEventModel.sequence))
+        return result.scalars().all()
