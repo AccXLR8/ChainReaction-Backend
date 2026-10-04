@@ -19,8 +19,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
 RUN pip install --no-cache-dir --upgrade pip maturin
 RUN git clone --depth 1 --branch ${CHAIN_REACTION_REF} ${CHAIN_REACTION_REPO} /tmp/chainreaction-engine \
     && cd /tmp/chainreaction-engine/python-bindings \
-    && maturin build --release --strip \
-    && pip install --no-cache-dir target/wheels/*.whl \
+    && maturin develop --release --strip \
     && rm -rf /tmp/chainreaction-engine
 
 COPY . .
