@@ -12,16 +12,18 @@ from app.middleware.logging import LoggingMiddleware
 from app.api.router import api_router
 from app.redis.client import RedisClient
 from app.database.session import Database
+from app.database.migrations_runner import run_migrations_once
 
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info("starting application", extra={"env": settings.app_env})
     await Database.connect(settings.database_url)
+    run_migrations_once()
     await RedisClient.connect(settings.redis_url)
     try:
         yield

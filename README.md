@@ -51,7 +51,7 @@ See `.env.example` for required configuration: database, Redis, Azure storage, e
 ## Development Notes
 
 - The rust engine binding is injected via `ENGINE_MODULE`. Implement a PyO3 wrapper exporting `apply_move` and update the adapter.
-- Use Alembic to generate migrations for the SQLAlchemy models located in `app/database/models.py`.
+- Alembic migrations live in `app/database/migrations`; the server runs `alembic upgrade head` automatically during startup, so any new database is initialized without manual SQL.
 - Redis keys are centralized under `app/redis/keys.py`.
 
 ## Architecture Overview
