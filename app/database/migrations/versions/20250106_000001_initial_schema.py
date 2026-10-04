@@ -20,7 +20,7 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-GAME_STATUS_ENUM = sa.Enum(
+GAME_STATUS_ENUM = postgresql.ENUM(
     "WAITING",
     "READY",
     "ACTIVE",
@@ -29,6 +29,7 @@ GAME_STATUS_ENUM = sa.Enum(
     "EXPIRED",
     "CANCELLED",
     name="gamestatus",
+    create_type=False,
 )
 
 
