@@ -97,9 +97,11 @@ alembic upgrade head  # uses alembic.ini
 
 ---
 
-## 7. Health checks & endpoints
+## 7. Health checks & key endpoints
 
-- **HTTP**: `/api/health` (liveness) and `/api/health/ready` (checks DB + Redis connections).
+- **Health**: `/api/health` (liveness) and `/api/health/ready` (checks DB + Redis connections).
+- **Auth**: `/api/auth/register`, `/api/auth/login`, `/api/auth/guest` for manual credentials and guest tokens. All responses return `access_token` you pass to other endpoints/websockets.
+- **Matchmaking**: `/api/matchmaking/join`, `/api/matchmaking/status`, `/api/matchmaking/leave` (auto-pairs players randomly and writes assignments to Redis).
 - **Gameplay REST**: `/api/games` (create/join/get/history, authenticated with `Authorization: Bearer <JWT>`).
 - **WebSocket**: `ws://<host>/ws/games/{game_id}?token=<JWT>` for real-time play. Messages follow `ServerMessageType` / `ClientMessageType` enums in `app/websocket/protocol.py`.
 

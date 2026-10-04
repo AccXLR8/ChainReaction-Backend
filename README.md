@@ -7,7 +7,7 @@ This backend exposes HTTP and WebSocket APIs for the two-player Chain Reaction e
 - FastAPI application with modular routers
 - Health, game, matchmaking, and user endpoints
 - PyO3-powered Chain Reaction engine bindings (via the `chain_reaction` module) with a fake adapter fallback for tests
-- Secure JWT authentication that protects HTTP + WebSocket traffic
+- Secure JWT authentication with built-in username/password registration + guest tokens
 - SQLAlchemy models for users, games, participants, moves, and events backed by Postgres
 - Redis integration for matchmaking queues and distributed locks
 - Azure Blob storage abstraction for replays
@@ -43,6 +43,19 @@ The backend loads the PyO3 module named by `ENGINE_MODULE` (defaults to `chain_r
 - The server authenticates the token, verifies the caller is a participant, and sends `connection_ack` + a `state_snapshot` payload.
 - Supported client messages today: `ping`, `join_game` (request a fresh snapshot), and `move` (`{"cell": int, "client_move_id": str | null}`).
 - Accepted moves persist inside Postgres, advance the authoritative engine state, and trigger broadcast messages: `move_accepted`, `state_snapshot`, and `game_finished` when applicable. Validation errors are returned as `move_rejected` with structured reasons.
+
+## Authentication & guest mode
+
+- `POST /api/auth/register` — create a username/password account; passwords are hashed with bcrypt and stored in Postgres.
+- `POST /api/auth/login` — obtain a JWT using stored credentials.
+- `POST /api/auth/guest` — mint a disposable guest identity (no password required) that still produces a signed JWT.
+- Every token embeds the user id/username and works for both HTTP and WebSocket endpoints.
+
+## Matchmaking
+
+- `POST /api/matchmaking/join` — enqueue the caller. As soon as at least two players queue up, the backend randomly pairs them, creates a game, and stores assignments in Redis.
+- `GET /api/matchmaking/status` — poll for your assignment; returns the game id once you’ve been paired.
+- `POST /api/matchmaking/leave` — leave the queue and discard any pending assignment.
 
 ## Environment Variables
 

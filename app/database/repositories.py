@@ -14,15 +14,29 @@ class UserRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_or_create(self, user_id: uuid.UUID, username: str) -> db.UserModel:
+    async def get_or_create(self, user_id: uuid.UUID, username: str, **extra) -> db.UserModel:
         result = await self.session.execute(select(db.UserModel).where(db.UserModel.id == user_id))
         user = result.scalar_one_or_none()
         if user:
             return user
-        user = db.UserModel(id=user_id, username=username)
+        user = db.UserModel(id=user_id, username=username, **extra)
         self.session.add(user)
         await self.session.flush()
         return user
+
+    async def get_by_username(self, username: str) -> db.UserModel | None:
+        result = await self.session.execute(select(db.UserModel).where(db.UserModel.username == username))
+        return result.scalar_one_or_none()
+
+    async def create(self, **kwargs) -> db.UserModel:
+        user = db.UserModel(**kwargs)
+        self.session.add(user)
+        await self.session.flush()
+        return user
+
+    async def get(self, user_id: uuid.UUID) -> db.UserModel | None:
+        result = await self.session.execute(select(db.UserModel).where(db.UserModel.id == user_id))
+        return result.scalar_one_or_none()
 
 
 class GameRepository:

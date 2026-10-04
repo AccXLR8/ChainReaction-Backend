@@ -12,3 +12,7 @@ def game_state_key(game_id: str) -> str:
 
 def connection_set_key(game_id: str) -> str:
     return f"game:{game_id}:connections"
+
+
+def matchmaking_assignment_key(user_id: str) -> str:
+    return f"matchmaking:assignment:{user_id}"

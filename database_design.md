@@ -21,6 +21,8 @@ This document captures the authoritative schema managed by Alembic. Every deploy
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | Unique identifier for the player/bot. |
 | `username` | `varchar(64)` | Unique, not null | Display name shown to opponents. |
+| `password_hash` | `varchar(255)` | nullable | Bcrypt hash for registered users (null for guests/3rd-party). |
+| `is_guest` | `bool` | default `false` | Marks guest accounts created via `/auth/guest`. |
 | `created_at` | `timestamptz` | default `now()` | Creation timestamp. |
 | `updated_at` | `timestamptz` | default `now()` | Last update timestamp (updated via SQLAlchemy). |
 

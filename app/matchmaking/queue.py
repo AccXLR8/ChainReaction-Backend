@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import uuid
 from typing import Optional
 
@@ -14,17 +15,17 @@ class MatchmakingQueue:
         self.mode = mode
 
     async def enqueue(self, user_id: uuid.UUID) -> None:
-        await self.redis.lpush(matchmaking_queue_key(self.mode), str(user_id))
+        await self.redis.sadd(matchmaking_queue_key(self.mode), str(user_id))
 
-    async def dequeue_pair(self) -> Optional[tuple[str, str]]:
-        queue = matchmaking_queue_key(self.mode)
-        player1 = await self.redis.rpop(queue)
-        player2 = await self.redis.rpop(queue)
-        if player1 and player2:
-            return player1.decode(), player2.decode()
-        if player1:
-            await self.redis.rpush(queue, player1)
-        return None
+    async def try_match(self) -> Optional[tuple[str, str]]:
+        key = matchmaking_queue_key(self.mode)
+        members = await self.redis.smembers(key)
+        decoded = [member.decode() for member in members]
+        if len(decoded) < 2:
+            return None
+        player1, player2 = random.sample(decoded, 2)
+        await self.redis.srem(key, player1, player2)
+        return player1, player2
 
     async def remove(self, user_id: uuid.UUID) -> None:
-        await self.redis.lrem(matchmaking_queue_key(self.mode), 0, str(user_id))
+        await self.redis.srem(matchmaking_queue_key(self.mode), str(user_id))
