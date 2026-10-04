@@ -18,12 +18,6 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
 
 RUN pip install --no-cache-dir --upgrade pip maturin
 RUN git clone --depth 1 --branch ${CHAIN_REACTION_REF} ${CHAIN_REACTION_REPO} /tmp/chainreaction-engine \
-    && cd /tmp/chainreaction-engine \
-    && if [ ! -d cli ]; then \
-         mkdir -p cli/src \
-         && printf '[package]\nname = "cli"\nversion = "0.1.0"\nedition = "2021"\npublish = false\n\n[dependencies]\nengine = { path = "../engine" }\n' > cli/Cargo.toml \
-         && printf 'fn main() {}\n' > cli/src/main.rs; \
-       fi \
     && cd /tmp/chainreaction-engine/python-bindings \
     && maturin build --release --strip \
     && pip install --no-cache-dir target/wheels/*.whl \
