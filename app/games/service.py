@@ -223,7 +223,15 @@ class GameService:
 
             outcome = result.result or {}
             status_meta = outcome.get("status") or {}
-            status_kind = status_meta.get("kind")
+            # Engine bindings have emitted both a structured status object
+            # (e.g. {"kind": "active"}) and a plain enum string ("ACTIVE").
+            # Accept both wire formats so a valid move is not rolled back.
+            if isinstance(status_meta, dict):
+                status_kind = status_meta.get("kind")
+            elif isinstance(status_meta, str):
+                status_kind = status_meta
+            else:
+                status_kind = None
             if status_kind and status_kind.lower() == "won":
                 game.status = GameStatus.FINISHED
                 game.finished_at = datetime.utcnow()

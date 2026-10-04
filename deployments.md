@@ -56,8 +56,23 @@ docker build \
   --build-arg CHAIN_REACTION_REF=main \
   -t chain-reaction-backend .
 
-# Run the app, mounting env vars
-docker run --env-file .env -p 8080:8080 chain-reaction-backend
+# (Solo VM) Run migrations
+# Assumes you've already created the `chainreaction` Docker network
+# and connected Postgres + Redis to it.
+docker run --rm \
+  --network chainreaction \
+  --env-file "$(pwd)/.env" \
+  -w /app \
+  chain-reaction-backend \
+  alembic upgrade head
+
+# Start the backend container
+docker run --name chainreaction-app \
+  --network chainreaction \
+  --env-file "$(pwd)/.env" \
+  -p 8080:8080 \
+  -d \
+  chain-reaction-backend
 ```
 
 The image installs system deps, Rust, the engine package, backend code, and starts `uvicorn app.main:app --host 0.0.0.0 --port 8080`.
