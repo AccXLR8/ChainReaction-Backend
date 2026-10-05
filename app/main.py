@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
+            "https://chain-reaction-frontend-ebon.vercel.app",
             "https://chain-reaction-frontend-qx3wq7pkq-samyak-sharmas-projects.vercel.app",
             "http://localhost:3000",
         ],
