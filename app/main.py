@@ -45,14 +45,17 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(LoggingMiddleware)
 
-    if settings.allowed_origins:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=[str(origin) for origin in settings.allowed_origins],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    # CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://chain-reaction-frontend-qx3wq7pkq-samyak-sharmas-projects.vercel.app",
+            "http://localhost:3000",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     app.include_router(api_router, prefix="/api")
 
