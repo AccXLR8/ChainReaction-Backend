@@ -210,8 +210,11 @@ class GameService:
                 raise
 
             clock_state.stop(player_slot, now)
-            next_player = (result.final_state.data.get("current_player")
-                           if isinstance(result.final_state.data, dict)\n                           else None)
+            next_player = (
+                result.final_state.data.get("current_player")
+                if isinstance(result.final_state.data, dict)
+                else None
+            )
             if next_player is None:
                 next_player = 1 - player_slot
             clock_state.start(next_player, now)
