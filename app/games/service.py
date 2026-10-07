@@ -179,6 +179,7 @@ class GameService:
         player_slot = self._player_slot_for_user(game, player_id)
 
         lock = game_lock_manager.get_lock(str(game_id))
+        game_finished = False
         async with lock:
             if game.current_player_slot is None:
                 game.current_player_slot = 0
@@ -210,8 +211,7 @@ class GameService:
 
             clock_state.stop(player_slot, now)
             next_player = (result.final_state.data.get("current_player")
-                           if isinstance(result.final_state.data, dict)
-                           else None)
+                           if isinstance(result.final_state.data, dict)\n                           else None)
             if next_player is None:
                 next_player = 1 - player_slot
             clock_state.start(next_player, now)
@@ -223,9 +223,6 @@ class GameService:
 
             outcome = result.result or {}
             status_meta = outcome.get("status") or {}
-            # Engine bindings have emitted both a structured status object
-            # (e.g. {"kind": "active"}) and a plain enum string ("ACTIVE").
-            # Accept both wire formats so a valid move is not rolled back.
             if isinstance(status_meta, dict):
                 status_kind = status_meta.get("kind")
             elif isinstance(status_meta, str):
@@ -243,6 +240,7 @@ class GameService:
                 elif winner_slot == 1:
                     game.winner_id = game.player_2_id
                     game.loser_id = game.player_1_id
+                game_finished = True
 
             participant_lookup: Dict[int, db.GameParticipantModel] = {p.player_slot: p for p in participants}
             if player_slot in participant_lookup:
@@ -257,8 +255,6 @@ class GameService:
                 cell=cell,
                 sequence=sequence,
                 turn_number=game.turn_number,
-                reaction=result.reaction,
-                final_state=result.final_state.data,
                 client_move_id=client_move_id,
                 time_remaining_ms=clock_state.clocks[player_slot].remaining_ms,
             )
@@ -281,7 +277,12 @@ class GameService:
             )
             await event_repo.append(event)
 
-            return GameEvent(sequence=sequence, event_type="move", payload=event_payload)
+            move_event = GameEvent(sequence=sequence, event_type="move", payload=event_payload)
+
+        if game_finished:
+            game_lock_manager.release(str(game_id))
+
+        return move_event
 
     def _player_slot_for_user(self, game: db.GameModel, user_id: uuid.UUID) -> int:
         if game.player_1_id == user_id:

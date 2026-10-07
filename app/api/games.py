@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.database import models as db
-from app.database.repositories import GameRepository, MoveRepository, ParticipantRepository
+from app.database.repositories import GameEventRepository, GameRepository, MoveRepository, ParticipantRepository
 from app.database.session import get_session
 from app.games.models import FinishReason, GameConfig, GameStatus
 from app.games.schemas import (
@@ -99,19 +99,26 @@ async def game_history(game_id: uuid.UUID, session: AsyncSession = Depends(get_s
 
     move_repo = MoveRepository(session)
     move_rows = await move_repo.list_for_game(game_id)
-    serialized_moves = [
-        {
-            "sequence": move.sequence,
-            "cell": move.cell,
-            "player_slot": move.player_slot,
-            "turn_number": move.turn_number,
-            "reaction": move.reaction,
-            "final_state": move.final_state,
-            "client_move_id": move.client_move_id,
-            "time_remaining_ms": move.time_remaining_ms,
-        }
-        for move in move_rows
-    ]
+    event_repo = GameEventRepository(session)
+    events = await event_repo.list_events(game_id)
+    events_by_sequence = {event.sequence: event.payload for event in events}
+
+    serialized_moves = []
+    for move in move_rows:
+        payload = events_by_sequence.get(move.sequence, {})
+        serialized_moves.append(
+            {
+                "sequence": move.sequence,
+                "cell": move.cell,
+                "player_slot": move.player_slot,
+                "turn_number": move.turn_number,
+                "reaction": payload.get("reaction"),
+                "final_state": payload.get("final_state"),
+                "client_move_id": move.client_move_id,
+                "time_remaining_ms": move.time_remaining_ms,
+            }
+        )
+
     result = FinishReason(game.finish_reason) if game.finish_reason else None
     return GameHistoryResponse(game_id=game_id, moves=serialized_moves, result=result)
 

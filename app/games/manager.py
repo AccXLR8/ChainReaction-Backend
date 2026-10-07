@@ -12,5 +12,8 @@ class GameLockManager:
     def get_lock(self, game_id: str) -> asyncio.Lock:
         return self._locks[game_id]
 
+    def release(self, game_id: str) -> None:
+        self._locks.pop(game_id, None)
+
 
 game_lock_manager = GameLockManager()
