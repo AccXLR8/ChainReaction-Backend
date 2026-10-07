@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import resource
 import uuid
 from datetime import datetime
 from importlib import import_module
@@ -219,9 +221,15 @@ class GameService:
                 next_player = 1 - player_slot
             clock_state.start(next_player, now)
 
-            game.turn_number = int(result.final_state.data.get("turn_number", game.turn_number + 1))
+            final_state_payload = result.final_state.data
+            final_state_size = len(json.dumps(final_state_payload)) if final_state_payload else 0
+            reaction_payload = result.reaction or {}
+            reaction_size = len(json.dumps(reaction_payload)) if reaction_payload else 0
+            latest_state_size = len(json.dumps(game.latest_state or {}))
+
+            game.turn_number = int(final_state_payload.get("turn_number", game.turn_number + 1))
             game.current_player_slot = next_player
-            game.latest_state = result.final_state.data
+            game.latest_state = final_state_payload
             game.status = GameStatus.ACTIVE
 
             outcome = result.result or {}
@@ -279,6 +287,22 @@ class GameService:
                 payload=event_payload,
             )
             await event_repo.append(event)
+
+            rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            logger.info(
+                "move.processed",
+                extra={
+                    "game_id": str(game_id),
+                    "sequence": sequence,
+                    "player_slot": player_slot,
+                    "cell": cell,
+                    "final_state_bytes": final_state_size,
+                    "reaction_bytes": reaction_size,
+                    "latest_state_bytes": latest_state_size,
+                    "rss_kb": rss_kb,
+                    "status": game.status.value,
+                },
+            )
 
             move_event = GameEvent(sequence=sequence, event_type="move", payload=event_payload)
 

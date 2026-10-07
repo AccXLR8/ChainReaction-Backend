@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from importlib import import_module
 from typing import Iterable, Protocol
 
 from app.engine.models import EngineGameState, EngineMove, EngineMoveResult
+
+
+logger = logging.getLogger(__name__)
 
 
 class EngineAdapter(Protocol):
@@ -33,7 +37,18 @@ class ChainReactionEngineAdapter:
 
         def _create() -> dict:
             state = module.new_game(width=width, height=height, players=list(players))
-            return json.loads(state.to_json())
+            serialized = state.to_json()
+            payload = json.loads(serialized)
+            logger.info(
+                "engine.new_game_state",
+                extra={
+                    "width": width,
+                    "height": height,
+                    "players": list(players),
+                    "payload_bytes": len(serialized),
+                },
+            )
+            return payload
 
         data = await asyncio.to_thread(_create)
         return EngineGameState(data=data)
@@ -41,14 +56,27 @@ class ChainReactionEngineAdapter:
     async def apply_move(self, state: EngineGameState, player_slot: int, move: EngineMove) -> EngineMoveResult:
         module = self._ensure_module()
 
-        def _apply() -> dict:
+        def _apply() -> tuple[dict, int]:
             cr_state = module.GameState.from_json(json.dumps(state.data))
             cr_move = module.Move(row=move.row, col=move.col)
             result = module.apply_move(cr_state, player_slot, cr_move)
-            payload = json.loads(result.to_json())
-            return payload
+            serialized = result.to_json()
+            payload = json.loads(serialized)
+            return payload, len(serialized)
 
-        payload = await asyncio.to_thread(_apply)
+        payload, serialized_len = await asyncio.to_thread(_apply)
+        timeline = payload.get("timeline", {})
+        timeline_steps = len(timeline.get("steps", [])) if isinstance(timeline, dict) else 0
+        logger.info(
+            "engine.apply_move",
+            extra={
+                "player_slot": player_slot,
+                "move_row": move.row,
+                "move_col": move.col,
+                "payload_bytes": serialized_len,
+                "timeline_steps": timeline_steps,
+            },
+        )
         final_state = EngineGameState(data=payload["final_state"])
         return EngineMoveResult(
             final_state=final_state,

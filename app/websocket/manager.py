@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List
 
 from fastapi import WebSocket
 
 from app.websocket.connection import WebSocketConnection
+
+
+logger = logging.getLogger(__name__)
 
 
 class WebSocketManager:
@@ -24,10 +28,26 @@ class WebSocketManager:
         )
         async with self._lock:
             self._connections.setdefault(game_id, []).append(conn)
+            logger.info(
+                "ws.connected",
+                extra={
+                    "game_id": game_id,
+                    "user_id": user_id,
+                    "player_slot": player_slot,
+                    "connection_count": len(self._connections.get(game_id, [])),
+                },
+            )
 
     async def disconnect(self, websocket: WebSocket, game_id: str) -> None:
         async with self._lock:
             self._remove_connection(game_id, websocket)
+            logger.info(
+                "ws.disconnected",
+                extra={
+                    "game_id": game_id,
+                    "connection_count": len(self._connections.get(game_id, [])),
+                },
+            )
 
     async def broadcast(self, game_id: str, message: dict) -> None:
         connections = list(self._connections.get(game_id, []))
@@ -41,21 +61,42 @@ class WebSocketManager:
             async with self._lock:
                 for ws in stale:
                     self._remove_connection(game_id, ws)
+        logger.info(
+            "ws.broadcast",
+            extra={
+                "game_id": game_id,
+                "message_type": message.get("type"),
+                "recipients": len(connections),
+                "stale_connections": len(stale),
+            },
+        )
 
     async def send_to_player(self, game_id: str, player_slot: int, message: dict) -> None:
         connections = list(self._connections.get(game_id, []))
         stale: List[WebSocket] = []
+        delivered = 0
         for conn in connections:
             if conn.player_slot != player_slot:
                 continue
             try:
                 await conn.websocket.send_json(message)
+                delivered += 1
             except Exception:
                 stale.append(conn.websocket)
         if stale:
             async with self._lock:
                 for ws in stale:
                     self._remove_connection(game_id, ws)
+        logger.info(
+            "ws.send_to_player",
+            extra={
+                "game_id": game_id,
+                "player_slot": player_slot,
+                "message_type": message.get("type"),
+                "recipients": delivered,
+                "stale_connections": len(stale),
+            },
+        )
 
     async def heartbeat(self, game_id: str, player_slot: int) -> None:
         connections = self._connections.get(game_id, [])
