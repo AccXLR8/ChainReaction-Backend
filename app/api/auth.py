@@ -44,7 +44,7 @@ class GuestRequest(BaseModel):
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(body: RegisterRequest, session: AsyncSession = Depends(get_session)):
     repo = UserRepository(session)
-    existing = await repo.get_by_username(body.username)
+    existing = await repo.get_registered_by_username(body.username)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
 
@@ -76,24 +76,18 @@ async def login_user(body: LoginRequest, session: AsyncSession = Depends(get_ses
 @router.post("/guest", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def guest_user(body: GuestRequest | None = None, session: AsyncSession = Depends(get_session)):
     repo = UserRepository(session)
-    username = await _generate_unique_guest_username(repo, desired=body.username if body else None)
+    username = _generate_guest_username(body.username if body else None)
     user = await repo.create(username=username, password_hash=None, is_guest=True)
     await session.commit()
     token = auth_service.create_access_token(user=user)
     return TokenResponse(access_token=token, user=_serialize_user(user))
 
 
-async def _generate_unique_guest_username(repo: UserRepository, desired: str | None = None) -> str:
+def _generate_guest_username(desired: str | None = None) -> str:
     if desired:
-        existing = await repo.get_by_username(desired)
-        if not existing:
-            return desired
-    while True:
-        suffix = "".join(random.choices(string.digits, k=6))
-        username = f"guest-{suffix}"
-        existing = await repo.get_by_username(username)
-        if not existing:
-            return username
+        return desired
+    suffix = "".join(random.choices(string.digits, k=6))
+    return f"guest-{suffix}"
 
 
 def _serialize_user(user) -> TokenUser:

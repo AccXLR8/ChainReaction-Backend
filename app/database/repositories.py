@@ -28,6 +28,12 @@ class UserRepository:
         result = await self.session.execute(select(db.UserModel).where(db.UserModel.username == username))
         return result.scalar_one_or_none()
 
+    async def get_registered_by_username(self, username: str) -> db.UserModel | None:
+        result = await self.session.execute(
+            select(db.UserModel).where(db.UserModel.username == username, db.UserModel.is_guest.is_(False))
+        )
+        return result.scalar_one_or_none()
+
     async def create(self, **kwargs) -> db.UserModel:
         user = db.UserModel(**kwargs)
         self.session.add(user)

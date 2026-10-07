@@ -48,9 +48,10 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
+        allow_origins = [
             "https://chain-reaction-frontend-ebon.vercel.app",
             "https://chain-reaction-frontend-qx3wq7pkq-samyak-sharmas-projects.vercel.app",
+            "https://superkritical.com",
             "http://localhost:3000",
         ],
         allow_credentials=True,
